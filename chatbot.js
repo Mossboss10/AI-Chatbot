@@ -4,11 +4,12 @@ const send = document.getElementById('send');
 
 let userHistory = [];
 let botHistory = [];
+let lastBotWasJoke = false; // NEW: remembers if bot just told a joke
+let jokeFollowupPending = false; // Waiting for user to answer "Want another?"
 
-// Video shortlinks for fun keywords (add more as needed)
+// Video shortlinks for fun keywords
 const videoShortcuts = {
   "send the max fosh i found the baby born next to me": "https://www.youtube.com/watch?v=UZhdVw1jXoE",
-  // Add more shortcuts here!
 };
 
 // ChatGPT-style commands
@@ -26,12 +27,11 @@ const commands = {
     /history - Show your chat history<br>
     /clear - Clear the chat<br>
     <b>Videos:</b> Paste a YouTube link or try: <i>send the max fosh i found the baby born next to me</i>`,
-  "/joke": () => randomFrom([
-    "Why do programmers prefer dark mode? Because light attracts bugs!",
-    "Why did the JavaScript developer wear glasses? Because they couldn't C#.",
-    "Why was the computer cold? It left its Windows open.",
-    "Why did the developer go broke? Because he used up all his cache!"
-  ]),
+  "/joke": () => {
+    lastBotWasJoke = true;
+    jokeFollowupPending = true;
+    return randomFrom(jokeList);
+  },
   "/quote": () => randomFrom([
     "“The best way to get started is to quit talking and begin doing.” – Walt Disney",
     "“Innovation distinguishes between a leader and a follower.” – Steve Jobs",
@@ -46,7 +46,6 @@ const commands = {
     "The most-streamed artist on Spotify in 2024 was Taylor Swift."
   ]),
   "/news": () => {
-    // Static demo news; could be updated by hand!
     const newsHeadlines = [
       "🎵 <b>Dua Lipa</b> announces new album 'Radical Optimism' released to critical acclaim.",
       "🌎 <b>World News:</b> NASA's Artemis II mission gets new launch window for Moon return.",
@@ -78,10 +77,22 @@ const commands = {
     chat.innerHTML = '';
     userHistory = [];
     botHistory = [];
+    lastBotWasJoke = false;
+    jokeFollowupPending = false;
     addMessage("bot", "Chat history cleared. Hi, I'm MossAI v3.02! Type /help for commands.");
     return "";
   }
 };
+
+// Jokes list (for both /joke and followups)
+const jokeList = [
+  "Why do programmers prefer dark mode? Because light attracts bugs!",
+  "Why did the JavaScript developer wear glasses? Because they couldn't C#.",
+  "Why was the computer cold? It left its Windows open.",
+  "Why did the developer go broke? Because he used up all his cache!",
+  "Why do Java developers wear glasses? Because they don't C#!",
+  "Why did the computer go to the doctor? Because it had a virus!"
+];
 
 // Pattern-based responses (for non-command chatting)
 const rules = [
@@ -97,7 +108,7 @@ const rules = [
   { pattern: /fact/i, reply: [commands["/fact"]()] }
 ];
 
-// Fallback Markov chain source
+// Markov chain for fallback
 const markovSource = `
 Welcome to the MossAI chat experience.
 Innovation and creativity are at your fingertips.
@@ -105,8 +116,6 @@ Type a command or just chat with me about anything.
 Every conversation is a new adventure.
 Curiosity is the key to learning and discovery.
 `;
-
-// Markov chain setup
 function buildMarkovChain(text) {
   const words = text.split(/\s+/).filter(w => w);
   const chain = {};
@@ -118,7 +127,6 @@ function buildMarkovChain(text) {
   return {chain, startWords: words.filter(w => w[0] === w[0].toUpperCase())};
 }
 const markov = buildMarkovChain(markovSource);
-
 function markovReply(len=10) {
   let word = markov.startWords[Math.floor(Math.random()*markov.startWords.length)].toLowerCase();
   let result = [word[0].toUpperCase() + word.slice(1)];
@@ -143,16 +151,12 @@ function escapeHTML(str) {
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[m]);
 }
-
-// Simple summarizer (just shortens the text for demo)
 function summarize(text) {
   const sentences = text.split(/\.|\?|!/).map(s => s.trim()).filter(Boolean);
   if(sentences.length === 0) return text;
   if(sentences.length === 1) return sentences[0];
   return sentences[0] + (sentences[1] ? '. ' + sentences[1] + '...' : '...');
 }
-
-// Expanded explainer
 function explainSimple(topic) {
   const t = topic.toLowerCase().trim();
   switch(t) {
@@ -185,10 +189,26 @@ function explainSimple(topic) {
 
 // Video embedding logic
 function extractYouTubeID(url) {
-  // Handles most YouTube link forms
   const ytRegex = /(?:youtube\.com\/.*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
   const match = url.match(ytRegex);
   return match ? match[1] : null;
+}
+function embedYouTube(url) {
+  const id = extractYouTubeID(url);
+  if(!id) return "Couldn't embed the video. Please check the link!";
+  return `<span>Here's your video:</span><br>
+  <iframe width="320" height="180" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+}
+
+// Recognize user laughter/positive reaction
+function isLaughter(msg) {
+  return /(haha|lol|lmao|rofl|😂|🤣|hehe|funny|good one|brilliant|amazing joke)/i.test(msg);
+}
+function isYes(msg) {
+  return /^(yes|yep|yess|sure|ok|another|go on|why not|yeah|please|do it|more)$/i.test(msg.trim());
+}
+function isNo(msg) {
+  return /^(no|nah|nope|not now|don't)$/i.test(msg.trim());
 }
 
 // Main chatbot logic
@@ -197,14 +217,35 @@ function getBotReply(message) {
   const shortcut = Object.keys(videoShortcuts).find(k => message.toLowerCase().includes(k));
   if(shortcut) {
     const url = videoShortcuts[shortcut];
+    lastBotWasJoke = false;
+    jokeFollowupPending = false;
     return embedYouTube(url);
   }
 
   // YouTube link detection
   if(/https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(message)) {
     const id = extractYouTubeID(message);
+    lastBotWasJoke = false;
+    jokeFollowupPending = false;
     if(id) return embedYouTube(`https://www.youtube.com/watch?v=${id}`);
     else return "Sorry, I couldn't recognize that YouTube link.";
+  }
+
+  // Joke followup: if user laughs after a joke
+  if(jokeFollowupPending && isLaughter(message)) {
+    jokeFollowupPending = false;
+    return "😄 You liked that one! Want another?";
+  }
+  // After "Want another?", check for yes/no
+  if(lastBotWasJoke && !jokeFollowupPending && (isYes(message) || isNo(message))) {
+    if(isYes(message)) {
+      jokeFollowupPending = true;
+      return randomFrom(jokeList);
+    }
+    if(isNo(message)) {
+      lastBotWasJoke = false;
+      return "Alright! Let me know if you want to hear another joke any time. 😁";
+    }
   }
 
   // Command handling
@@ -212,9 +253,19 @@ function getBotReply(message) {
     const cmd = message.split(" ")[0].toLowerCase();
     if(commands[cmd]) {
       const result = commands[cmd](message);
+      // Only set joke flags if command is /joke
+      if (cmd === "/joke" && result) {
+        lastBotWasJoke = true;
+        jokeFollowupPending = true;
+      } else if (cmd !== "/joke") {
+        lastBotWasJoke = false;
+        jokeFollowupPending = false;
+      }
       if(result) botHistory.push(result);
       return result;
     } else {
+      lastBotWasJoke = false;
+      jokeFollowupPending = false;
       return "Unknown command. Type <b>/help</b> for a list of commands.";
     }
   }
@@ -223,21 +274,24 @@ function getBotReply(message) {
     if (rule.pattern.test(message)) {
       const replies = Array.isArray(rule.reply) ? rule.reply : [rule.reply];
       const reply = randomFrom(replies);
+      // If this was a joke, set joke flags
+      if (rule.pattern.toString().includes("/joke/")) {
+        lastBotWasJoke = true;
+        jokeFollowupPending = true;
+      } else {
+        lastBotWasJoke = false;
+        jokeFollowupPending = false;
+      }
       botHistory.push(reply);
       return reply;
     }
   }
   // Fallback: Markov chain
+  lastBotWasJoke = false;
+  jokeFollowupPending = false;
   const markovText = markovReply();
   botHistory.push(markovText);
   return markovText;
-}
-
-function embedYouTube(url) {
-  const id = extractYouTubeID(url);
-  if(!id) return "Couldn't embed the video. Please check the link!";
-  return `<span>Here's your video:</span><br>
-  <iframe width="320" height="180" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
 }
 
 function addMessage(sender, text) {
@@ -267,4 +321,4 @@ input.addEventListener('keypress', e => {
 });
 
 // Welcome message
-addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with music news, more /explain topics, and video embedding 🚀");
+addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with music news, more /explain topics, video embedding, and smart joke follow-ups 🚀");
