@@ -97,6 +97,12 @@
         border: 1px solid #3e516a;
         font-weight: 400;
       }
+      .bot iframe {
+        display: block;
+        margin: 7px 0 0 0;
+        border-radius: 8px;
+        border: none;
+      }
       .command-list {
         background: #232836;
         color: #9ed6bf;
@@ -171,11 +177,12 @@
       </div>
       <div class="command-list" id="command-list">
         <b>Commands:</b>
-        /help &bull; /joke &bull; /quote &bull; /fact &bull; /imagine &bull; /summarize &bull; /explain &bull; /history &bull; /clear
+        /help &bull; /joke &bull; /quote &bull; /fact &bull; /news &bull; /imagine &bull; /summarize &bull; /explain &bull; /history &bull; /clear<br>
+        <b>Videos:</b> Paste a YouTube link or try: <i>send the max fosh i found the baby born next to me</i>
       </div>
       <div id="chat"></div>
       <div class="input-area">
-        <input id="input" type="text" placeholder="Type a message or command..." autocomplete="off" />
+        <input id="input" type="text" placeholder="Type a message, command, or paste a video link..." autocomplete="off" />
         <button id="send">Send</button>
       </div>
     </div>
