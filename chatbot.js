@@ -4,15 +4,93 @@ const send = document.getElementById('send');
 
 let userHistory = [];
 let botHistory = [];
-let lastBotWasJoke = false; // NEW: remembers if bot just told a joke
-let jokeFollowupPending = false; // Waiting for user to answer "Want another?"
+let lastBotWasJoke = false;
+let jokeFollowupPending = false;
+
+// ========== MINI BRAIN (Learning & Memory) ==========
+let brain = JSON.parse(localStorage.getItem('mossai_brain') || '{}');
+
+// Save brain to localStorage
+function saveBrain() {
+  localStorage.setItem('mossai_brain', JSON.stringify(brain));
+}
+
+// Teach MossAI facts
+function learnFact(message) {
+  // e.g. "remember the capital of france is Paris" or "learn: my dog's name is Max"
+  const patterns = [
+    /remember (.+?) is (.+)/i,
+    /learn:?\s*(.+?) is (.+)/i,
+    /teach you:? (.+?) is (.+)/i,
+    /my ([\w\s]+) is (.+)/i
+  ];
+  for (const pat of patterns) {
+    const match = message.match(pat);
+    if (match) {
+      let key = match[1].trim().toLowerCase();
+      let value = match[2].trim();
+      brain[key] = value;
+      saveBrain();
+      return `Got it! I'll remember: <b>${match[1].trim()} is ${value}</b>.`;
+    }
+  }
+  return null;
+}
+
+// Retrieve facts
+function recallFact(message) {
+  // Try to match questions like "what is the capital of france", "who is my dog", etc.
+  const patterns = [
+    /what is (.+)\?/i,
+    /who is (.+)\?/i,
+    /where is (.+)\?/i,
+    /what's (.+)\?/i,
+    /tell me (.+)/i,
+    /do you know (.+)\?/i,
+    /my ([\w\s]+)\?/i
+  ];
+  for (const pat of patterns) {
+    const match = message.match(pat);
+    if (match) {
+      let key = match[1].trim().toLowerCase();
+      if (brain[key]) {
+        return `${capitalize(key)} is <b>${brain[key]}</b>.`;
+      }
+    }
+  }
+  // Also answer "what's my favorite color" etc.
+  const myPat = /what(?:'s| is) my ([\w\s]+)\??/i;
+  const myMatch = message.match(myPat);
+  if (myMatch) {
+    let key = `my ${myMatch[1].trim().toLowerCase()}`;
+    if (brain[key]) {
+      return `Your ${myMatch[1].trim()} is <b>${brain[key]}</b>.`;
+    }
+  }
+  return null;
+}
+
+// Correction
+function correctFact(message) {
+  // e.g. "No, my favorite color is green"
+  const pat = /no,? my ([\w\s]+) is (.+)/i;
+  const match = message.match(pat);
+  if (match) {
+    let key = `my ${match[1].trim().toLowerCase()}`;
+    let value = match[2].trim();
+    brain[key] = value;
+    saveBrain();
+    return `Thanks for correcting me! Your ${match[1].trim()} is now <b>${value}</b>.`;
+  }
+  return null;
+}
 
 // Video shortlinks for fun keywords
 const videoShortcuts = {
   "send the max fosh i found the baby born next to me": "https://www.youtube.com/watch?v=UZhdVw1jXoE",
+  // Add more shortcuts here!
 };
 
-// ChatGPT-style commands
 const commands = {
   "/help": () => 
     `<b>MossAI Commands:</b><br>
@@ -84,7 +162,6 @@ const commands = {
   }
 };
 
-// Jokes list (for both /joke and followups)
 const jokeList = [
   "Why do programmers prefer dark mode? Because light attracts bugs!",
   "Why did the JavaScript developer wear glasses? Because they couldn't C#.",
@@ -94,7 +171,6 @@ const jokeList = [
   "Why did the computer go to the doctor? Because it had a virus!"
 ];
 
-// Pattern-based responses (for non-command chatting)
 const rules = [
   { pattern: /hello|hi|hey/i, reply: ["Hi there! 👋", "Hey! How can I help you?", "Hello, friend!"] },
   { pattern: /how are you/i, reply: ["I'm just code, but feeling clever! How about you?"] },
@@ -187,7 +263,6 @@ function explainSimple(topic) {
   }
 }
 
-// Video embedding logic
 function extractYouTubeID(url) {
   const ytRegex = /(?:youtube\.com\/.*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
   const match = url.match(ytRegex);
@@ -199,8 +274,6 @@ function embedYouTube(url) {
   return `<span>Here's your video:</span><br>
   <iframe width="320" height="180" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
 }
-
-// Recognize user laughter/positive reaction
 function isLaughter(msg) {
   return /(haha|lol|lmao|rofl|😂|🤣|hehe|funny|good one|brilliant|amazing joke)/i.test(msg);
 }
@@ -211,8 +284,20 @@ function isNo(msg) {
   return /^(no|nah|nope|not now|don't)$/i.test(msg.trim());
 }
 
-// Main chatbot logic
+// ========== MODIFIED getBotReply ==========
 function getBotReply(message) {
+  // 1. Correction?
+  let correction = correctFact(message);
+  if (correction) return correction;
+
+  // 2. Did user teach a fact?
+  let learned = learnFact(message);
+  if (learned) return learned;
+
+  // 3. Is user asking about a fact?
+  let recall = recallFact(message);
+  if (recall) return recall;
+
   // Video keyword shortcut
   const shortcut = Object.keys(videoShortcuts).find(k => message.toLowerCase().includes(k));
   if(shortcut) {
@@ -253,7 +338,6 @@ function getBotReply(message) {
     const cmd = message.split(" ")[0].toLowerCase();
     if(commands[cmd]) {
       const result = commands[cmd](message);
-      // Only set joke flags if command is /joke
       if (cmd === "/joke" && result) {
         lastBotWasJoke = true;
         jokeFollowupPending = true;
@@ -274,7 +358,6 @@ function getBotReply(message) {
     if (rule.pattern.test(message)) {
       const replies = Array.isArray(rule.reply) ? rule.reply : [rule.reply];
       const reply = randomFrom(replies);
-      // If this was a joke, set joke flags
       if (rule.pattern.toString().includes("/joke/")) {
         lastBotWasJoke = true;
         jokeFollowupPending = true;
@@ -321,4 +404,4 @@ input.addEventListener('keypress', e => {
 });
 
 // Welcome message
-addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with music news, more /explain topics, video embedding, and smart joke follow-ups 🚀");
+addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with memory, music news, more /explain topics, video embedding, and smart joke follow-ups 🚀");
