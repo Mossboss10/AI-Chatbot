@@ -5,6 +5,12 @@ const send = document.getElementById('send');
 let userHistory = [];
 let botHistory = [];
 
+// Video shortlinks for fun keywords (add more as needed)
+const videoShortcuts = {
+  "send the max fosh i found the baby born next to me": "https://www.youtube.com/watch?v=UZhdVw1jXoE",
+  // Add more shortcuts here!
+};
+
 // ChatGPT-style commands
 const commands = {
   "/help": () => 
@@ -13,12 +19,13 @@ const commands = {
     /joke - Tell a random joke<br>
     /quote - Inspire with a quote<br>
     /fact - Tell a cool fact<br>
+    /news - Show world & music news<br>
     /imagine [prompt] - Generate a creative idea<br>
     /summarize [text] - Summarize your text<br>
-    /explain [topic] - Explain a topic simply<br>
+    /explain [topic] - Explain a topic simply (e.g. /explain jazz, /explain blockchain)<br>
     /history - Show your chat history<br>
     /clear - Clear the chat<br>
-    <span style="color:#6ef9b7">Just type and chat naturally, too!</span>`,
+    <b>Videos:</b> Paste a YouTube link or try: <i>send the max fosh i found the baby born next to me</i>`,
   "/joke": () => randomFrom([
     "Why do programmers prefer dark mode? Because light attracts bugs!",
     "Why did the JavaScript developer wear glasses? Because they couldn't C#.",
@@ -35,8 +42,20 @@ const commands = {
     "Did you know? The first computer bug was an actual moth.",
     "JavaScript was created in just 10 days.",
     "The first webcam watched a coffee pot at Cambridge University.",
-    "More data has been created in the last two years than in the previous history of humanity."
+    "More data has been created in the last two years than in the previous history of humanity.",
+    "The most-streamed artist on Spotify in 2024 was Taylor Swift."
   ]),
+  "/news": () => {
+    // Static demo news; could be updated by hand!
+    const newsHeadlines = [
+      "🎵 <b>Dua Lipa</b> announces new album 'Radical Optimism' released to critical acclaim.",
+      "🌎 <b>World News:</b> NASA's Artemis II mission gets new launch window for Moon return.",
+      "🎶 <b>Taylor Swift</b> makes history with Eras Tour, grossing over $1B worldwide.",
+      "🎧 <b>AI Music</b> tools spark debate among artists over copyright and creativity.",
+      "📺 <b>Eurovision 2025:</b> Sweden wins with synth-pop anthem."
+    ];
+    return "<b>World & Music News:</b><br>" + newsHeadlines.map(h=>`• ${h}`).join("<br>");
+  },
   "/imagine": (msg) => {
     const prompt = msg.replace(/^\/imagine\s*/i, "") || "something fun";
     return `Here's a creative idea: <i>${capitalize(prompt)}... as a video game character in a pixel art world!</i>`;
@@ -48,7 +67,7 @@ const commands = {
   },
   "/explain": (msg) => {
     const topic = msg.replace(/^\/explain\s*/i, "");
-    if (!topic) return "Please provide a topic to explain, e.g. <b>/explain recursion</b>";
+    if (!topic) return "Please provide a topic to explain, e.g. <b>/explain jazz</b>";
     return explainSimple(topic);
   },
   "/history": () => {
@@ -64,8 +83,6 @@ const commands = {
   }
 };
 
-// Add more ChatGPT-style commands here!
-
 // Pattern-based responses (for non-command chatting)
 const rules = [
   { pattern: /hello|hi|hey/i, reply: ["Hi there! 👋", "Hey! How can I help you?", "Hello, friend!"] },
@@ -75,6 +92,7 @@ const rules = [
   { pattern: /weather/i, reply: ["I can't check the weather, but I hope it's nice where you are!"] },
   { pattern: /joke/i, reply: [commands["/joke"]()] },
   { pattern: /quote/i, reply: [commands["/quote"]()] },
+  { pattern: /news|music news/i, reply: [commands["/news"]()] },
   { pattern: /bye|goodbye|see you/i, reply: ["Goodbye! 👋", "See you next time!", "Bye!"] },
   { pattern: /fact/i, reply: [commands["/fact"]()] }
 ];
@@ -134,7 +152,7 @@ function summarize(text) {
   return sentences[0] + (sentences[1] ? '. ' + sentences[1] + '...' : '...');
 }
 
-// Simple explainer
+// Expanded explainer
 function explainSimple(topic) {
   const t = topic.toLowerCase().trim();
   switch(t) {
@@ -147,13 +165,48 @@ function explainSimple(topic) {
       return "JavaScript is a programming language for making web pages interactive. It runs in your browser!";
     case "markov chain":
       return "A Markov chain is a way to generate sequences (like text) where each next step depends only on the current state, not the full history.";
+    case "blockchain":
+      return "Blockchain is a digital ledger technology where transactions are recorded in linked blocks, making them secure and tamper-resistant.";
+    case "jazz":
+      return "Jazz is a music genre that originated in African-American communities, known for improvisation, swing, and expressive rhythms.";
+    case "taylor swift":
+      return "Taylor Swift is a Grammy-winning singer-songwriter known for her storytelling, genre-spanning albums, and cultural impact in pop and country music.";
+    case "max fosh":
+      return "Max Fosh is a British YouTuber famous for his humorous street interviews and unique social experiments.";
+    case "eurovision":
+      return "Eurovision is an annual international song competition, popular in Europe, known for its extravagant performances and catchy tunes.";
+    case "llm":
+    case "large language model":
+      return "A Large Language Model (LLM) is a type of AI trained on huge text datasets to generate and understand human-like language, like ChatGPT.";
     default:
       return `Sorry, I don't have a simple explanation for <b>${escapeHTML(topic)}</b>, but you can try to /imagine it!`;
   }
 }
 
+// Video embedding logic
+function extractYouTubeID(url) {
+  // Handles most YouTube link forms
+  const ytRegex = /(?:youtube\.com\/.*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+  const match = url.match(ytRegex);
+  return match ? match[1] : null;
+}
+
 // Main chatbot logic
 function getBotReply(message) {
+  // Video keyword shortcut
+  const shortcut = Object.keys(videoShortcuts).find(k => message.toLowerCase().includes(k));
+  if(shortcut) {
+    const url = videoShortcuts[shortcut];
+    return embedYouTube(url);
+  }
+
+  // YouTube link detection
+  if(/https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(message)) {
+    const id = extractYouTubeID(message);
+    if(id) return embedYouTube(`https://www.youtube.com/watch?v=${id}`);
+    else return "Sorry, I couldn't recognize that YouTube link.";
+  }
+
   // Command handling
   if(message.startsWith("/")) {
     const cmd = message.split(" ")[0].toLowerCase();
@@ -178,6 +231,13 @@ function getBotReply(message) {
   const markovText = markovReply();
   botHistory.push(markovText);
   return markovText;
+}
+
+function embedYouTube(url) {
+  const id = extractYouTubeID(url);
+  if(!id) return "Couldn't embed the video. Please check the link!";
+  return `<span>Here's your video:</span><br>
+  <iframe width="320" height="180" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
 }
 
 function addMessage(sender, text) {
@@ -207,4 +267,4 @@ input.addEventListener('keypress', e => {
 });
 
 // Welcome message
-addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do!");
+addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with music news, more /explain topics, and video embedding 🚀");
