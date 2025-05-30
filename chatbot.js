@@ -2,31 +2,93 @@ const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const send = document.getElementById('send');
 
-// "Memory" for previous user messages
-const memory = [];
+let userHistory = [];
+let botHistory = [];
 
-// Pattern-based rules
+// ChatGPT-style commands
+const commands = {
+  "/help": () => 
+    `<b>MossAI Commands:</b><br>
+    /help - Show this help<br>
+    /joke - Tell a random joke<br>
+    /quote - Inspire with a quote<br>
+    /fact - Tell a cool fact<br>
+    /imagine [prompt] - Generate a creative idea<br>
+    /summarize [text] - Summarize your text<br>
+    /explain [topic] - Explain a topic simply<br>
+    /history - Show your chat history<br>
+    /clear - Clear the chat<br>
+    <span style="color:#6ef9b7">Just type and chat naturally, too!</span>`,
+  "/joke": () => randomFrom([
+    "Why do programmers prefer dark mode? Because light attracts bugs!",
+    "Why did the JavaScript developer wear glasses? Because they couldn't C#.",
+    "Why was the computer cold? It left its Windows open.",
+    "Why did the developer go broke? Because he used up all his cache!"
+  ]),
+  "/quote": () => randomFrom([
+    "“The best way to get started is to quit talking and begin doing.” – Walt Disney",
+    "“Innovation distinguishes between a leader and a follower.” – Steve Jobs",
+    "“Code is like humor. When you have to explain it, it’s bad.” – Cory House",
+    "“Simplicity is the soul of efficiency.” – Austin Freeman"
+  ]),
+  "/fact": () => randomFrom([
+    "Did you know? The first computer bug was an actual moth.",
+    "JavaScript was created in just 10 days.",
+    "The first webcam watched a coffee pot at Cambridge University.",
+    "More data has been created in the last two years than in the previous history of humanity."
+  ]),
+  "/imagine": (msg) => {
+    const prompt = msg.replace(/^\/imagine\s*/i, "") || "something fun";
+    return `Here's a creative idea: <i>${capitalize(prompt)}... as a video game character in a pixel art world!</i>`;
+  },
+  "/summarize": (msg) => {
+    const text = msg.replace(/^\/summarize\s*/i, "");
+    if (!text) return "Please provide text to summarize, like: <b>/summarize</b> The sun is a star...";
+    return `Summary: <i>${summarize(text)}</i>`;
+  },
+  "/explain": (msg) => {
+    const topic = msg.replace(/^\/explain\s*/i, "");
+    if (!topic) return "Please provide a topic to explain, e.g. <b>/explain recursion</b>";
+    return explainSimple(topic);
+  },
+  "/history": () => {
+    if(userHistory.length === 0) return "No chat history yet!";
+    return "<b>Recent User Messages:</b><br>" + userHistory.slice(-10).map((msg,i) => `${i+1}. ${escapeHTML(msg)}`).join("<br>");
+  },
+  "/clear": () => {
+    chat.innerHTML = '';
+    userHistory = [];
+    botHistory = [];
+    addMessage("bot", "Chat history cleared. Hi, I'm MossAI v3.02! Type /help for commands.");
+    return "";
+  }
+};
+
+// Add more ChatGPT-style commands here!
+
+// Pattern-based responses (for non-command chatting)
 const rules = [
-  { pattern: /hello|hi|hey/i, reply: ["Hello!", "Hey there!", "Hi! How's it going?"] },
-  { pattern: /how are you/i, reply: ["I'm just code, but I'm doing great! How about you?"] },
-  { pattern: /your name|who are you/i, reply: ["I'm your clever browser chatbot.", "People call me Chatty!"] },
-  { pattern: /help|can you/i, reply: ["Ask me anything, or just chat with me. I'm learning!"] },
-  { pattern: /weather/i, reply: ["I can't check the weather, but it looks nice in here!"] },
-  { pattern: /joke/i, reply: ["Why did the web developer go broke? Because he used up all his cache!", "What do you call a computer that sings? A Dell!"] },
-  { pattern: /bye|goodbye|see you/i, reply: ["Goodbye!", "See you later!", "Bye! Come back soon!"] },
-  { pattern: /who made you|who created you/i, reply: ["I was made by Mossboss10 with a little help from Copilot!"] }
+  { pattern: /hello|hi|hey/i, reply: ["Hi there! 👋", "Hey! How can I help you?", "Hello, friend!"] },
+  { pattern: /how are you/i, reply: ["I'm just code, but feeling clever! How about you?"] },
+  { pattern: /your name|who are you/i, reply: ["I'm MossAI v3.02, your friendly browser chatbot."] },
+  { pattern: /help/i, reply: ["Type /help for a list of commands or just chat with me!"] },
+  { pattern: /weather/i, reply: ["I can't check the weather, but I hope it's nice where you are!"] },
+  { pattern: /joke/i, reply: [commands["/joke"]()] },
+  { pattern: /quote/i, reply: [commands["/quote"]()] },
+  { pattern: /bye|goodbye|see you/i, reply: ["Goodbye! 👋", "See you next time!", "Bye!"] },
+  { pattern: /fact/i, reply: [commands["/fact"]()] }
 ];
 
-// Markov chain source text (short example)
+// Fallback Markov chain source
 const markovSource = `
-Welcome to the world of code and creativity.
-Frontend chatbots are fun and clever.
-JavaScript makes everything possible in the browser.
-Ask me a question and let's chat about anything.
-Creativity and curiosity drive technology forward.
+Welcome to the MossAI chat experience.
+Innovation and creativity are at your fingertips.
+Type a command or just chat with me about anything.
+Every conversation is a new adventure.
+Curiosity is the key to learning and discovery.
 `;
 
-// Build Markov chain model
+// Markov chain setup
 function buildMarkovChain(text) {
   const words = text.split(/\s+/).filter(w => w);
   const chain = {};
@@ -51,41 +113,78 @@ function markovReply(len=10) {
   return result.join(' ') + '.';
 }
 
-// Intent detection (very basic)
-function detectIntent(text) {
-  if(/(how|what|why|where|when|who)/i.test(text) && text.endsWith('?')) return 'question';
-  if(/joke/i.test(text)) return 'joke';
-  if(/bye|goodbye/i.test(text)) return 'bye';
-  if(/name|who are you/i.test(text)) return 'identity';
-  if(/hello|hi|hey/i.test(text)) return 'greeting';
-  return 'unknown';
+// Utility functions
+function randomFrom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[m]);
 }
 
+// Simple summarizer (just shortens the text for demo)
+function summarize(text) {
+  const sentences = text.split(/\.|\?|!/).map(s => s.trim()).filter(Boolean);
+  if(sentences.length === 0) return text;
+  if(sentences.length === 1) return sentences[0];
+  return sentences[0] + (sentences[1] ? '. ' + sentences[1] + '...' : '...');
+}
+
+// Simple explainer
+function explainSimple(topic) {
+  const t = topic.toLowerCase().trim();
+  switch(t) {
+    case "recursion":
+      return "Recursion is when a function calls itself to solve a smaller part of a problem, often until a base case is reached.";
+    case "ai":
+    case "artificial intelligence":
+      return "AI stands for Artificial Intelligence: making computers do things that usually require human intelligence, like recognizing images or understanding language.";
+    case "javascript":
+      return "JavaScript is a programming language for making web pages interactive. It runs in your browser!";
+    case "markov chain":
+      return "A Markov chain is a way to generate sequences (like text) where each next step depends only on the current state, not the full history.";
+    default:
+      return `Sorry, I don't have a simple explanation for <b>${escapeHTML(topic)}</b>, but you can try to /imagine it!`;
+  }
+}
+
+// Main chatbot logic
 function getBotReply(message) {
-  // Try pattern rules
+  // Command handling
+  if(message.startsWith("/")) {
+    const cmd = message.split(" ")[0].toLowerCase();
+    if(commands[cmd]) {
+      const result = commands[cmd](message);
+      if(result) botHistory.push(result);
+      return result;
+    } else {
+      return "Unknown command. Type <b>/help</b> for a list of commands.";
+    }
+  }
+  // Pattern rules
   for (const rule of rules) {
     if (rule.pattern.test(message)) {
       const replies = Array.isArray(rule.reply) ? rule.reply : [rule.reply];
-      return replies[Math.floor(Math.random()*replies.length)];
+      const reply = randomFrom(replies);
+      botHistory.push(reply);
+      return reply;
     }
   }
-  // Intent-based extra responses
-  const intent = detectIntent(message);
-  if(intent === 'question') {
-    // Try to use memory for context
-    if(memory.length > 0) {
-      return "Earlier you said: \"" + memory[memory.length-1] + "\". Can you tell me more?";
-    } else {
-      return "That's an interesting question! What do you think?";
-    }
-  }
-  // Fallback to Markov chain for creativity
-  return markovReply();
+  // Fallback: Markov chain
+  const markovText = markovReply();
+  botHistory.push(markovText);
+  return markovText;
 }
 
 function addMessage(sender, text) {
+  if(!text) return;
   const msg = document.createElement('div');
-  msg.innerHTML = `<b>${sender}:</b> ${text}`;
+  msg.className = 'msg ' + sender;
+  msg.innerHTML = text;
   chat.appendChild(msg);
   chat.scrollTop = chat.scrollHeight;
 }
@@ -93,10 +192,12 @@ function addMessage(sender, text) {
 function handleSend() {
   const userMsg = input.value.trim();
   if (!userMsg) return;
-  addMessage("You", userMsg);
-  memory.push(userMsg);
-  const botReply = getBotReply(userMsg);
-  setTimeout(() => addMessage("Bot", botReply), 500);
+  addMessage("user", escapeHTML(userMsg));
+  userHistory.push(userMsg);
+  setTimeout(() => {
+    const botReply = getBotReply(userMsg);
+    if(botReply) addMessage("bot", botReply);
+  }, 350);
   input.value = '';
 }
 
@@ -105,5 +206,5 @@ input.addEventListener('keypress', e => {
   if (e.key === 'Enter') handleSend();
 });
 
-// Initial greeting
-addMessage("Bot", "Hi! I'm your clever browser chatbot. Say hello or ask me anything!");
+// Welcome message
+addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do!");
