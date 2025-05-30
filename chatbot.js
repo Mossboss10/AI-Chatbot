@@ -17,7 +17,6 @@ function saveBrain() {
 
 // Teach MossAI facts
 function learnFact(message) {
-  // e.g. "remember the capital of france is Paris" or "learn: my dog's name is Max"
   const patterns = [
     /remember (.+?) is (.+)/i,
     /learn:?\s*(.+?) is (.+)/i,
@@ -39,7 +38,6 @@ function learnFact(message) {
 
 // Retrieve facts
 function recallFact(message) {
-  // Try to match questions like "what is the capital of france", "who is my dog", etc.
   const patterns = [
     /what is (.+)\?/i,
     /who is (.+)\?/i,
@@ -58,7 +56,6 @@ function recallFact(message) {
       }
     }
   }
-  // Also answer "what's my favorite color" etc.
   const myPat = /what(?:'s| is) my ([\w\s]+)\??/i;
   const myMatch = message.match(myPat);
   if (myMatch) {
@@ -72,7 +69,6 @@ function recallFact(message) {
 
 // Correction
 function correctFact(message) {
-  // e.g. "No, my favorite color is green"
   const pat = /no,? my ([\w\s]+) is (.+)/i;
   const match = message.match(pat);
   if (match) {
@@ -184,7 +180,6 @@ const rules = [
   { pattern: /fact/i, reply: [commands["/fact"]()] }
 ];
 
-// Markov chain for fallback
 const markovSource = `
 Welcome to the MossAI chat experience.
 Innovation and creativity are at your fingertips.
@@ -284,7 +279,6 @@ function isNo(msg) {
   return /^(no|nah|nope|not now|don't)$/i.test(msg.trim());
 }
 
-// ========== MODIFIED getBotReply ==========
 function getBotReply(message) {
   // 1. Correction?
   let correction = correctFact(message);
@@ -403,5 +397,4 @@ input.addEventListener('keypress', e => {
   if (e.key === 'Enter') handleSend();
 });
 
-// Welcome message
 addMessage("bot", "👋 Hi! I'm <b>MossAI v3.02</b>. Type <b>/help</b> to see what I can do! Now with memory, music news, more /explain topics, video embedding, and smart joke follow-ups 🚀");
