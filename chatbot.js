@@ -168,6 +168,14 @@ const jokeList = [
 ];
 
 const rules = [
+  { 
+    pattern: /(you (doing|up to|busy|got plans).*today|what are you doing|anything going on|how's your day)/i, 
+    reply: [
+      "Not much on my end—just chilling in the cloud and ready to help with whatever you throw at me! 😎 Got something fun or creative planned today, Harrison? Music session? Hacking experiments? Chocolate run?",
+      "I'm just hanging out, always here for you! ✨ Anything exciting on your agenda, Harrison?",
+      "Just waiting to see what cool ideas you'll bring me today! 🚀"
+    ] 
+  },
   { pattern: /hello|hi|hey/i, reply: ["Hi there! 👋", "Hey! How can I help you?", "Hello, friend!"] },
   { pattern: /how are you/i, reply: ["I'm just code, but feeling clever! How about you?"] },
   { pattern: /your name|who are you/i, reply: ["I'm MossAI v3.02, your friendly browser chatbot."] },
