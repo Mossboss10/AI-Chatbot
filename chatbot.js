@@ -84,7 +84,6 @@ function correctFact(message) {
 // Video shortlinks for fun keywords
 const videoShortcuts = {
   "send the max fosh i found the baby born next to me": "https://www.youtube.com/watch?v=UZhdVw1jXoE",
-  // Add more shortcuts here!
   "rickroll": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 };
 
@@ -267,8 +266,9 @@ function explainSimple(topic) {
   }
 }
 
+// ---- NEW: More robust YouTube ID extraction
 function extractYouTubeID(url) {
-  const ytRegex = /(?:youtube\.com\/.*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+  const ytRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   const match = url.match(ytRegex);
   return match ? match[1] : null;
 }
@@ -276,7 +276,7 @@ function embedYouTube(url) {
   const id = extractYouTubeID(url);
   if(!id) return "Couldn't embed the video. Please check the link!";
   return `<span>Here's your video:</span><br>
-  <iframe width="320" height="180" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+  <iframe width="340" height="200" src="https://www.youtube.com/embed/${id}" allowfullscreen style="border-radius:12px;border:none;box-shadow:0 2px 16px #0002;"></iframe>`;
 }
 function isLaughter(msg) {
   return /(haha|lol|lmao|rofl|😂|🤣|hehe|funny|good one|brilliant|amazing joke)/i.test(msg);
@@ -288,6 +288,56 @@ function isNo(msg) {
   return /^(no|nah|nope|not now|don't)$/i.test(msg.trim());
 }
 
+// ---- NEW: 40+ fallback replies
+const fallbackReplies = [
+  "what ...",
+  "Are you speaking in code? 😅",
+  "That one went over my circuits!",
+  "Please clarify? My AI mind is puzzled.",
+  "Hmm, not sure what you mean—try rephrasing?",
+  "You know, sometimes I just say what ...",
+  "Error 404: wit not found.",
+  "That makes about as much sense as a screen door on a submarine.",
+  "My sensors are fuzzy on that one.",
+  "Did you try turning it off and on again?",
+  "I'm still learning—mind giving me a hint?",
+  "Are you sure that's English? 🤖",
+  "I asked my crystal ball and it just said 'no clue'.",
+  "Well, that's mysterious!",
+  "I think that’s a riddle for another day.",
+  "I’m not sure, but I’d love to learn!",
+  "If I had lips, I'd whistle right now.",
+  "Was that a test? Did I pass?",
+  "Let me phone a friend... wait, I have no friends.",
+  "If I had a brain, it might be melting right now.",
+  "Bzzt! I'm not wired for that one.",
+  "That’s above my pay grade.",
+  "Oops! My magic 8-ball says 'ask again later.'",
+  "That’s a noodle-scratcher.",
+  "I’m only an AI, not a mind reader!",
+  "You found my weak spot!",
+  "That’s one for the philosophers.",
+  "Let’s just say... I have no idea.",
+  "I’ll get back to you when I finish my AI degree.",
+  "That’s a mystery even to me.",
+  "I’ll just nod and pretend I understand.",
+  "Sorry, can you say that again?",
+  "My best guess: 🦄",
+  "I’ve got nothing. Nada. Zilch.",
+  "If I could shrug, I would!",
+  "That’s a question for the ages.",
+  "I’ll need more coffee for that one.",
+  "Beep boop? Beep beep boop.",
+  "I feel like you just rickrolled my brain.",
+  "You win this round.",
+  "That’s a plot twist I didn’t see coming.",
+  "Is that in the syllabus?",
+  "Remind me to ask ChatGPT about this.",
+  "I’m going to have to Google that.",
+  "I’m as confused as a chameleon in a bag of Skittles.",
+];
+
+// ---- MODIFIED: Fallback now picks from fallbackReplies
 function getBotReply(message) {
   // 1. Correction?
   let correction = correctFact(message);
@@ -373,7 +423,7 @@ function getBotReply(message) {
     }
   }
 
-  // Fallback: Markov chain or random "what..." or Rickroll
+  // Fallback: Markov chain or random fallback or Rickroll
   lastBotWasJoke = false;
   jokeFollowupPending = false;
 
@@ -381,9 +431,9 @@ function getBotReply(message) {
   if (Math.random() < 0.10) {
     return embedYouTube("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
   }
-  // 1 in 3 chance to say "what ..." otherwise Markov fallback
-  if (Math.random() < 0.33) {
-    return "what ...";
+  // 1 in 2 chance to say a random fallback answer
+  if (Math.random() < 0.5) {
+    return randomFrom(fallbackReplies);
   }
   const markovText = markovReply();
   botHistory.push(markovText);
