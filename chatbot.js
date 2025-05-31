@@ -85,6 +85,7 @@ function correctFact(message) {
 const videoShortcuts = {
   "send the max fosh i found the baby born next to me": "https://www.youtube.com/watch?v=UZhdVw1jXoE",
   // Add more shortcuts here!
+  "rickroll": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 };
 
 const commands = {
@@ -371,9 +372,19 @@ function getBotReply(message) {
       return reply;
     }
   }
-  // Fallback: Markov chain
+
+  // Fallback: Markov chain or random "what..." or Rickroll
   lastBotWasJoke = false;
   jokeFollowupPending = false;
+
+  // 1 in 10 chance to Rickroll if user said something unrecognized (just for fun)
+  if (Math.random() < 0.10) {
+    return embedYouTube("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  }
+  // 1 in 3 chance to say "what ..." otherwise Markov fallback
+  if (Math.random() < 0.33) {
+    return "what ...";
+  }
   const markovText = markovReply();
   botHistory.push(markovText);
   return markovText;
